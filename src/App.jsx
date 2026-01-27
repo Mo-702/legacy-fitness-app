@@ -90,7 +90,6 @@ const quotes = [
 ];
 
 export default function App() {
-  // --- STATE ---
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('legacy_user_v6') || '{"weight": 75, "height": 175, "age": 25, "gender": "male"}'));
   const [activeDay, setActiveDay] = useState(Object.keys(workoutData)[new Date().getDay()]);
   const [completed, setCompleted] = useState(() => JSON.parse(localStorage.getItem('legacy_done_v6') || '{}'));
@@ -101,7 +100,6 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [timer, setTimer] = useState(0);
 
-  // --- PERSISTENCE ---
   useEffect(() => {
     localStorage.setItem('legacy_user_v6', JSON.stringify(user));
     localStorage.setItem('legacy_done_v6', JSON.stringify(completed));
@@ -117,24 +115,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [timer]);
 
-  // --- CALCULATIONS ---
-  const bmr = useMemo(() => {
-    return Math.round(10 * user.weight + 6.25 * user.height - 5 * user.age + 5);
-  }, [user]);
-
-  const calculateCalories = (met, weight, duration) => {
-    return Math.round((met * 3.5 * weight) / 200 * duration);
-  };
+  const bmr = useMemo(() => Math.round(10 * user.weight + 6.25 * user.height - 5 * user.age + 5), [user]);
+  const calculateCalories = (met, weight, duration) => Math.round((met * 3.5 * weight) / 200 * duration);
 
   const burnedWorkout = useMemo(() => {
     const dayData = workoutData[activeDay];
     if (!dayData) return 0;
     return dayData.exercises.reduce((acc, ex) => {
       const key = `${activeDay}-${ex.en}`;
-      if (completed[key]) {
-        // نعتبر التمرين يأخذ 10 دقائق في المتوسط شاملة الراحة النشطة
-        return acc + calculateCalories(ex.met, user.weight, 10);
-      }
+      if (completed[key]) return acc + calculateCalories(ex.met, user.weight, 10);
       return acc;
     }, 0);
   }, [activeDay, completed, user.weight]);
@@ -155,17 +144,14 @@ export default function App() {
 
   const netCalories = stats.cal - (bmr + burnedWorkout + burnedCardio);
 
-  // --- HANDLERS ---
-  const addMeal = (food) => {
-    setMeals([...meals, { ...food, id: Date.now() }]);
-  };
+  const addMeal = (food) => setMeals([...meals, { ...food, id: Date.now() }]);
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 pb-36 font-sans rtl select-none" dir="rtl">
       
-      {/* Header */}
+      {/* Header Responsive */}
       <div className="sticky top-0 z-50 bg-[#020617]/90 backdrop-blur-xl border-b border-white/5 p-5">
-        <div className="max-w-md mx-auto flex justify-between items-center">
+        <div className="max-w-md md:max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20">
               <Activity size={22} className="text-white" />
@@ -184,10 +170,10 @@ export default function App() {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto p-5 space-y-6">
+      <div className="max-w-md md:max-w-5xl mx-auto p-5 space-y-6">
         
         {view === 'dashboard' && (
-          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in zoom-in-95 duration-500">
             {/* Calories Summary Card */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-950 border border-white/10 rounded-[2.5rem] p-7 relative overflow-hidden shadow-2xl">
                <div className="relative z-10">
@@ -214,7 +200,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Macros Progress */}
                 <div className="mt-8 space-y-3">
                   <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
                     <span>بروتين: {stats.protein}ج</span>
@@ -232,7 +217,7 @@ export default function App() {
             </div>
 
             {/* Quick Cardio */}
-            <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[2rem] p-6">
+            <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[2rem] p-6 flex flex-col justify-center">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="text-sm font-black flex items-center gap-2"><Footprints className="text-emerald-500" size={18}/> نشاط الكارديو</h3>
                 <span className="text-[10px] font-bold text-slate-400">-{burnedCardio} kcal</span>
@@ -273,7 +258,7 @@ export default function App() {
               ))}
             </div>
 
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {workoutData[activeDay]?.exercises.length > 0 ? (
                 workoutData[activeDay].exercises.map(ex => {
                   const key = `${activeDay}-${ex.en}`;
@@ -295,7 +280,7 @@ export default function App() {
                             </div>
                           </div>
                         </div>
-                        <div onClick={() => { setCompleted({...completed, [key]: !isDone}); if(!isDone) setTimer(90); }}>
+                        <div onClick={() => { setCompleted({...completed, [key]: !isDone}); if(!isDone) setTimer(Timer90); }}>
                           {isDone ? <CheckCircle2 className="text-emerald-500" size={28} /> : <Circle className="text-slate-800" size={28} />}
                         </div>
                       </div>
@@ -313,7 +298,7 @@ export default function App() {
                   );
                 })
               ) : (
-                <div className="text-center py-20 bg-slate-900/10 rounded-[3rem] border-2 border-dashed border-slate-800/40">
+                <div className="md:col-span-2 text-center py-20 bg-slate-900/10 rounded-[3rem] border-2 border-dashed border-slate-800/40">
                     <Coffee size={48} className="mx-auto mb-4 text-slate-700" />
                     <p className="text-slate-600 font-bold italic">يوم راحة مستحق.. استمتع بقهوتك ☕</p>
                 </div>
@@ -323,8 +308,8 @@ export default function App() {
         )}
 
         {view === 'food' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
+            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6 h-fit">
               <h3 className="text-sm font-black mb-6 flex items-center gap-2 text-orange-500"><Search size={18}/> قاعدة بيانات الطعام</h3>
               <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto no-scrollbar pr-2">
                 {foodDatabase.map((food, i) => (
@@ -359,22 +344,24 @@ export default function App() {
 
             <div className="space-y-3">
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">سجل اليوم</h4>
-              {meals.map(m => (
-                <div key={m.id} className="bg-slate-900/40 p-4 rounded-2xl flex justify-between items-center border border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-500/10 text-orange-500 rounded-lg"><Apple size={16}/></div>
-                    <div><p className="text-xs font-black">{m.name}</p><p className="text-[10px] text-slate-500">{m.cal} kcal</p></div>
+              <div className="max-h-[400px] md:max-h-[550px] overflow-y-auto no-scrollbar space-y-3">
+                {meals.map(m => (
+                  <div key={m.id} className="bg-slate-900/40 p-4 rounded-2xl flex justify-between items-center border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-500/10 text-orange-500 rounded-lg"><Apple size={16}/></div>
+                      <div><p className="text-xs font-black">{m.name}</p><p className="text-[10px] text-slate-500">{m.cal} kcal</p></div>
+                    </div>
+                    <button onClick={() => setMeals(meals.filter(x => x.id !== m.id))} className="text-slate-800 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                   </div>
-                  <button onClick={() => setMeals(meals.filter(x => x.id !== m.id))} className="text-slate-800 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {view === 'music' && (
-          <div className="space-y-6 animate-in slide-in-from-right duration-500">
-            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-7">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-right duration-500">
+            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-7 h-fit">
               <div className="flex items-center gap-3 mb-8 text-pink-500">
                 <Music size={24} />
                 <h3 className="text-xl font-black italic">مختبر تحليل الأداء الموسيقي</h3>
@@ -382,10 +369,6 @@ export default function App() {
               <div className="space-y-4">
                 <input id="m_art" type="text" placeholder="الفنان (Travis Scott, Linkin Park...)" className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm outline-none focus:border-pink-500" />
                 <input id="m_tit" type="text" placeholder="اسم الأغنية اللي تفجرك" className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm outline-none focus:border-pink-500" />
-                <div className="py-2">
-                    <div className="flex justify-between mb-2 px-1"><span className="text-[10px] font-black text-slate-500 uppercase">Adrenaline Boost</span><span className="text-pink-500 font-black">7/10</span></div>
-                    <input type="range" min="1" max="10" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-500" />
-                </div>
                 <button onClick={() => {
                   const a = document.getElementById('m_art').value;
                   const t = document.getElementById('m_tit').value;
@@ -408,8 +391,8 @@ export default function App() {
         )}
 
         {view === 'profile' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
+            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6 h-fit">
               <h3 className="text-sm font-black mb-8 flex items-center gap-2 text-indigo-400"><User size={20}/> إعدادات الـ LEGACY OS</h3>
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
@@ -438,34 +421,24 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <div className="mt-8 p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
-                <p className="text-[10px] font-bold text-indigo-300 leading-relaxed text-center">
-                    يتم استخدام هذه البيانات لحساب معدل الأيض (BMR) وحرق السعرات أثناء التمارين والكارديو بشكل آلي تماماً.
-                </p>
-              </div>
             </div>
-
             <button 
                 onClick={() => { if(confirm('مسح كل البيانات والبدء من الصفر؟')) { setCompleted({}); setMeals([]); setSongs([]); } }}
-                className="w-full py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-xs uppercase tracking-widest active:bg-red-500 active:text-white transition-all"
+                className="w-full h-fit py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-xs uppercase tracking-widest active:bg-red-500 active:text-white transition-all self-end"
             >
                 Reset Legacy Data
             </button>
           </div>
         )}
 
-        {/* Dynamic Motivation Footer */}
         <div className="pt-4 pb-10 text-center px-4">
-            <p className="text-[11px] font-bold text-slate-600 italic">
-               "{quotes[Math.floor(Math.random() * quotes.length)]}"
-            </p>
+            <p className="text-[11px] font-bold text-slate-600 italic">"{quotes[Math.floor(Math.random() * quotes.length)]}"</p>
         </div>
-
       </div>
 
-      {/* Modern Bottom Navigation */}
+      {/* Modern Bottom Navigation Responsive */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 p-5 bg-[#020617]/95 backdrop-blur-2xl border-t border-white/5">
-        <div className="max-w-md mx-auto grid grid-cols-5 gap-2">
+        <div className="max-w-md md:max-w-2xl mx-auto grid grid-cols-5 gap-2">
           {[
             {id: 'dashboard', icon: TrendingUp, label: 'لوحة'},
             {id: 'workout', icon: Dumbbell, label: 'تمرين'},
@@ -484,7 +457,6 @@ export default function App() {
           ))}
         </div>
       </nav>
-
     </div>
   );
 }

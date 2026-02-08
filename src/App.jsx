@@ -81,6 +81,7 @@ export default function App() {
   const [activeDay, setActiveDay] = useState(new Intl.DateTimeFormat('ar-EG', {weekday: 'long'}).format(new Date()));
   const [completed, setCompleted] = useState(() => JSON.parse(localStorage.getItem('legacy_done_v7') || '{}'));
   const [sessionData, setSessionData] = useState(() => JSON.parse(localStorage.getItem('legacy_sessions_v7') || '{}'));
+  const [cardio, setCardio] = useState(() => JSON.parse(localStorage.getItem('legacy_cardio_v7') || '{"minutes": 0, "type": "walking"}'));
   const [water, setWater] = useState(() => parseInt(localStorage.getItem('legacy_water_v7') || '0'));
   const [streak, setStreak] = useState(() => parseInt(localStorage.getItem('legacy_streak_v7') || '0'));
   const [meals, setMeals] = useState(() => JSON.parse(localStorage.getItem('legacy_meals_v7') || '[]'));
@@ -90,13 +91,17 @@ export default function App() {
   const [showToast, setShowToast] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  // جلب البيانات من السحابة
+  // جلب البيانات من السحابة (تم التعديل لجلب سجل التمارين)
   useEffect(() => {
     async function initDB() {
       try {
         const data = await sql`SELECT * FROM user_profile ORDER BY id DESC LIMIT 1`;
         if (data.length > 0) {
           setUser({ weight: data[0].weight, height: data[0].height, age: data[0].age, gender: data[0].gender });
+          // كود جديد: جلب سجل التمارين إذا كان موجوداً
+          if (data[0].workout_stats) {
+            setSessionData(JSON.parse(data[0].workout_stats));
+          }
         }
       } catch (err) { console.error(err); } 
       finally { setLoading(false); }
@@ -104,22 +109,25 @@ export default function App() {
     initDB();
   }, []);
 
-  // المزامنة التلقائية
+  // المزامنة التلقائية (تم التعديل لحفظ سجل التمارين)
   useEffect(() => {
     if (loading) return;
     const timeoutId = setTimeout(async () => {
       setSyncing(true);
       try {
-        await sql`INSERT INTO user_profile (weight, height, age, gender) VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender})`;
-      } catch (err) { console.error(err); } 
+        const statsString = JSON.stringify(sessionData); // تحويل التمارين لنص للحفظ
+        await sql`INSERT INTO user_profile (weight, height, age, gender, workout_stats) VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender}, ${statsString})`;
+      } catch (err) { console.error("Auto-sync failed", err); } 
       finally { setSyncing(false); }
     }, 2000); 
     return () => clearTimeout(timeoutId);
-  }, [user, loading]);
+  }, [user, sessionData, loading]); // تمت إضافة sessionData للمراقبة
 
+  // الحفظ اليدوي (تم التعديل لحفظ سجل التمارين)
   const handleManualSave = async () => {
     try {
-      await sql`INSERT INTO user_profile (weight, height, age, gender) VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender})`;
+      const statsString = JSON.stringify(sessionData);
+      await sql`INSERT INTO user_profile (weight, height, age, gender, workout_stats) VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender}, ${statsString})`;
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
     } catch (err) { console.error(err); }
@@ -128,10 +136,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('legacy_done_v7', JSON.stringify(completed));
     localStorage.setItem('legacy_sessions_v7', JSON.stringify(sessionData));
+    localStorage.setItem('legacy_cardio_v7', JSON.stringify(cardio));
     localStorage.setItem('legacy_meals_v7', JSON.stringify(meals));
     localStorage.setItem('legacy_water_v7', water.toString());
     localStorage.setItem('legacy_streak_v7', streak.toString());
-  }, [completed, sessionData, meals, water, streak]);
+  }, [completed, sessionData, cardio, meals, water, streak]);
 
   useEffect(() => {
     let interval;
@@ -160,14 +169,14 @@ export default function App() {
     carbs: acc.carbs + parseInt(m.carbs || 0), fat: acc.fat + parseInt(m.fat || 0)
   }), { cal: 0, protein: 0, carbs: 0, fat: 0 }), [meals]);
 
-  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white font-black italic text-2xl animate-pulse">LEGACY OS</div>;
+  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white font-black italic text-2xl animate-pulse uppercase">Legacy OS</div>;
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 pb-36 font-sans rtl" dir="rtl">
       
       {showToast && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500 text-white px-8 py-4 rounded-[2rem] shadow-2xl font-black text-xs animate-in slide-in-from-top-8 border border-white/20">
-          تم حفظ الإعدادات بنجاح ✅
+          تم حفظ الإعدادات وسجل التمارين بنجاح ✅
         </div>
       )}
 
@@ -215,6 +224,19 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <button onClick={() => setWater(Math.max(0, water - 1))} className="p-2 bg-slate-800 rounded-xl"><Minus size={16}/></button>
                 <button onClick={() => setWater(water + 1)} className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-900/40"><Plus size={16}/></button>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6">
+              <div className="flex justify-between items-center mb-4"><h3 className="text-xs font-black flex items-center gap-2"><Footprints size={16}/> نشاط الكارديو</h3><span className="text-[10px] font-bold text-orange-500">-{burnedWorkout} kcal</span></div>
+              <div className="flex gap-2 mb-4">
+                {['walking', 'running'].map(t => (
+                  <button key={t} onClick={() => setCardio({...cardio, type: t})} className={`flex-1 py-3 rounded-xl text-[10px] font-black border ${cardio.type === t ? 'bg-emerald-600 border-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{t === 'walking' ? 'مشي' : 'جري'}</button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between bg-black/30 p-4 rounded-2xl">
+                <span className="text-xs font-bold text-slate-500 italic">المدة (دقائق):</span>
+                <div className="flex items-center gap-4"><button onClick={() => setCardio({...cardio, minutes: Math.max(0, cardio.minutes - 5)})} className="p-1 bg-slate-800 rounded-lg"><Minus size={14}/></button><span className="text-xl font-mono font-black">{cardio.minutes}</span><button onClick={() => setCardio({...cardio, minutes: cardio.minutes + 5})} className="p-1 bg-slate-800 rounded-lg"><Plus size={14}/></button></div>
               </div>
             </div>
           </div>

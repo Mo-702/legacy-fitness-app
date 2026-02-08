@@ -2,10 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { neon } from '@neondatabase/serverless';
 import { 
   Dumbbell, Timer, Zap, Trophy, User, 
-  Settings, ChevronRight, CheckCircle2, Circle, 
-  Flame, Scale, Ruler, Plus, Minus, Trash2, 
-  TrendingUp, Activity, Heart, Utensils, Footprints,
-  Coffee, Pizza, Apple, Search, ChevronDown, Droplets
+  CheckCircle2, Circle, Flame, Minus, Plus, Trash2, 
+  TrendingUp, Activity, Utensils, Droplets, Apple, Search, Footprints
 } from 'lucide-react';
 
 // تجهيز الاتصال بقاعدة البيانات
@@ -42,6 +40,8 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [timer, setTimer] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showToast, setShowToast] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // جلب البيانات من قاعدة البيانات عند التشغيل
   useEffect(() => {
@@ -49,33 +49,33 @@ export default function App() {
       try {
         const data = await sql`SELECT * FROM user_profile ORDER BY id DESC LIMIT 1`;
         if (data.length > 0) {
-          setUser({
-            weight: data[0].weight,
-            height: data[0].height,
-            age: data[0].age,
-            gender: data[0].gender
-          });
+          setUser({ weight: data[0].weight, height: data[0].height, age: data[0].age, gender: data[0].gender });
         }
-      } catch (err) {
-        console.error("Database fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error("Database fetch error:", err); } 
+      finally { setLoading(false); }
     }
     initDB();
   }, []);
 
-  // حفظ التعديلات في قاعدة البيانات
-  const handleDatabaseSave = async () => {
+  // المزامنة التلقائية الصامتة
+  useEffect(() => {
+    if (loading) return;
+    const timeoutId = setTimeout(async () => {
+      setSyncing(true);
+      try {
+        await sql`INSERT INTO user_profile (weight, height, age, gender) VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender})`;
+      } catch (err) { console.error("Auto-sync failed", err); } 
+      finally { setSyncing(false); }
+    }, 2000); 
+    return () => clearTimeout(timeoutId);
+  }, [user, loading]);
+
+  const handleManualSave = async () => {
     try {
-      await sql`
-        INSERT INTO user_profile (weight, height, age, gender) 
-        VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender})
-      `;
-      alert("تمت المزامنة مع السحابة بنجاح! ✅");
-    } catch (err) {
-      alert("خطأ في المزامنة.. تأكد من اتصالك");
-    }
+      await sql`INSERT INTO user_profile (weight, height, age, gender) VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender})`;
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) { console.error(err); }
   };
 
   useEffect(() => {
@@ -117,13 +117,18 @@ export default function App() {
     carbs: acc.carbs + parseInt(m.carbs || 0), fat: acc.fat + parseInt(m.fat || 0)
   }), { cal: 0, protein: 0, carbs: 0, fat: 0 }), [meals]);
 
-  const netCalories = stats.cal - (bmr + burnedWorkout + burnedCardio);
-
-  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white font-black">LEGACY OS IS LOADING...</div>;
+  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white font-black italic tracking-tighter text-2xl animate-pulse">LEGACY OS</div>;
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 pb-36 font-sans rtl select-none" dir="rtl">
+    <div className="min-h-screen bg-[#020617] text-slate-100 pb-36 font-sans rtl" dir="rtl">
       
+      {/* Toast المنبثق الأنيق */}
+      {showToast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500 text-white px-8 py-4 rounded-[2rem] shadow-2xl font-black text-xs animate-in slide-in-from-top-8 duration-500 border border-white/20">
+          تم حفظ الإعدادات بنجاح ✅
+        </div>
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-50 bg-[#020617]/90 backdrop-blur-xl border-b border-white/5 p-5">
         <div className="max-w-md mx-auto flex justify-between items-center">
@@ -131,26 +136,30 @@ export default function App() {
             <div className="bg-indigo-600 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20"><Activity size={22} /></div>
             <div>
               <h1 className="text-lg font-black tracking-tighter leading-none">LEGACY OS</h1>
-              <div className="flex items-center gap-1 text-[9px] text-orange-400 font-bold uppercase"><Trophy size={10}/> STREAK: {streak} DAYS</div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="text-[9px] text-orange-400 font-bold uppercase tracking-widest">Streak: {streak}</div>
+                {syncing && <div className="text-[7px] text-indigo-400 font-bold animate-pulse tracking-widest uppercase italic">● Syncing</div>}
+              </div>
             </div>
           </div>
-          <div onClick={() => setTimer(0)} className={`px-4 py-2.5 rounded-2xl border flex items-center gap-2 transition-all ${timer > 0 ? 'bg-orange-600 animate-pulse' : 'bg-slate-800 border-slate-700'}`}>
+          <div className={`px-4 py-2.5 rounded-2xl border flex items-center gap-2 transition-all bg-slate-800 border-slate-700`}>
             <Timer size={16} /><span className="font-mono font-black text-sm">{timer > 0 ? `${timer}s` : 'REST'}</span>
           </div>
         </div>
       </div>
 
       <div className="max-w-md mx-auto p-5 space-y-6">
-        
         {view === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-            <div className="bg-gradient-to-br from-slate-800 to-slate-950 border border-white/10 rounded-[2.5rem] p-7 relative overflow-hidden shadow-2xl">
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center mb-2">الميزانية الصافية</p>
-              <h2 className={`text-6xl font-black text-center ${netCalories > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{Math.abs(netCalories)}</h2>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-950 border border-white/10 rounded-[2.5rem] p-8 relative overflow-hidden shadow-2xl">
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center mb-2">صافي السعرات اليومية</p>
+              <h2 className={`text-6xl font-black text-center ${stats.cal - (bmr + burnedWorkout + burnedCardio) > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                {Math.abs(stats.cal - (bmr + burnedWorkout + burnedCardio))}
+              </h2>
               <div className="grid grid-cols-3 gap-2 mt-8 pt-6 border-t border-white/5 text-center">
-                <div><p className="text-[9px] text-slate-500">أكل</p><p className="text-xs font-black">{stats.cal}</p></div>
-                <div className="border-x border-white/5"><p className="text-[9px] text-slate-500">حرق</p><p className="text-xs font-black">-{burnedWorkout + burnedCardio}</p></div>
-                <div><p className="text-[9px] text-slate-500">BMI</p><p className="text-xs font-black text-indigo-400">{bmi}</p></div>
+                <div><p className="text-[9px] text-slate-500 italic">أكل</p><p className="text-xs font-black">{stats.cal}</p></div>
+                <div className="border-x border-white/5"><p className="text-[9px] text-slate-500 italic">حرق</p><p className="text-xs font-black">-{bmr + burnedWorkout + burnedCardio}</p></div>
+                <div><p className="text-[9px] text-slate-500 italic">BMI</p><p className="text-xs font-black text-indigo-400">{bmi}</p></div>
               </div>
               <Flame size={150} className="absolute -right-12 -bottom-12 text-white/5 rotate-12" />
             </div>
@@ -174,7 +183,7 @@ export default function App() {
                 ))}
               </div>
               <div className="flex items-center justify-between bg-black/30 p-4 rounded-2xl">
-                <span className="text-xs font-bold text-slate-500">المدة (دقائق):</span>
+                <span className="text-xs font-bold text-slate-500 italic">المدة (دقائق):</span>
                 <div className="flex items-center gap-4"><button onClick={() => setCardio({...cardio, minutes: Math.max(0, cardio.minutes - 5)})} className="p-1 bg-slate-800 rounded-lg"><Minus size={14}/></button><span className="text-xl font-mono font-black">{cardio.minutes}</span><button onClick={() => setCardio({...cardio, minutes: cardio.minutes + 5})} className="p-1 bg-slate-800 rounded-lg"><Plus size={14}/></button></div>
               </div>
             </div>
@@ -196,7 +205,7 @@ export default function App() {
                   <div className="flex justify-between items-center" onClick={() => { setCompleted({...completed, [key]: !isDone}); if(!isDone) {setTimer(90); setStreak(s => s + 1);} }}>
                     <div className="flex gap-4">
                       <div className={`p-4 rounded-2xl ${isDone ? 'bg-emerald-500' : 'bg-slate-800 text-slate-500'}`}><Dumbbell size={22}/></div>
-                      <div><p className={`text-sm font-black ${isDone ? 'line-through text-slate-600' : ''}`}>{ex.en}</p><p className="text-[10px] text-indigo-400">{ex.ar}</p></div>
+                      <div><p className={`text-sm font-black ${isDone ? 'line-through text-slate-600' : ''}`}>{ex.en}</p><p className="text-[10px] text-indigo-400 font-bold">{ex.ar}</p></div>
                     </div>
                     {isDone ? <CheckCircle2 className="text-emerald-500" size={28}/> : <Circle className="text-slate-800" size={28}/>}
                   </div>
@@ -206,25 +215,25 @@ export default function App() {
                   </div>
                 </div>
               );
-            }) : <div className="text-center py-20 text-slate-600 font-bold">يوم راحة مستحق.. استمتع بقهوتك ☕</div>}
+            }) : <div className="text-center py-20 text-slate-600 font-bold italic">يوم راحة مستحق.. استمتع بقهوتك ☕</div>}
           </div>
         )}
 
         {view === 'food' && (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => setMeals([...meals, {name: "بروتين سريع", cal: 80, protein: 20, carbs: 0, fat: 0, id: Date.now()}])} className="bg-blue-600/20 border border-blue-500/30 p-3 rounded-2xl text-[10px] font-black text-blue-400">+20g Protein</button>
-              <button onClick={() => setMeals([...meals, {name: "كارب سريع", cal: 120, protein: 0, carbs: 30, fat: 0, id: Date.now()}])} className="bg-emerald-600/20 border border-emerald-500/30 p-3 rounded-2xl text-[10px] font-black text-emerald-400">+30g Carbs</button>
-              <button onClick={() => setMeals([...meals, {name: "دهون سريعة", cal: 90, protein: 0, carbs: 0, fat: 10, id: Date.now()}])} className="bg-red-600/20 border border-red-500/30 p-3 rounded-2xl text-[10px] font-black text-red-400">+10g Fat</button>
+              <button onClick={() => setMeals([...meals, {name: "بروتين سريع", cal: 80, protein: 20, carbs: 0, fat: 0, id: Date.now()}])} className="bg-blue-600/20 border border-blue-500/30 p-3 rounded-2xl text-[10px] font-black text-blue-400 uppercase">+20g Prot</button>
+              <button onClick={() => setMeals([...meals, {name: "كارب سريع", cal: 120, protein: 0, carbs: 30, fat: 0, id: Date.now()}])} className="bg-emerald-600/20 border border-emerald-500/30 p-3 rounded-2xl text-[10px] font-black text-emerald-400 uppercase">+30g Carb</button>
+              <button onClick={() => setMeals([...meals, {name: "دهون سريعة", cal: 90, protein: 0, carbs: 0, fat: 10, id: Date.now()}])} className="bg-red-600/20 border border-red-500/30 p-3 rounded-2xl text-[10px] font-black text-red-400 uppercase">+10g Fat</button>
             </div>
             
-            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6">
+            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6 text-right">
               <h3 className="text-xs font-black mb-4 flex items-center gap-2 text-orange-500"><Search size={16}/> قاعدة البيانات</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
                 {foodDatabase.map((f, i) => (
                   <div key={i} onClick={() => setMeals([...meals, {...f, id: Date.now()}])} className="flex justify-between items-center p-4 bg-black/20 rounded-2xl border border-white/5 cursor-pointer active:scale-95">
-                    <div><p className="text-xs font-black">{f.name}</p><p className="text-[9px] text-slate-500">P:{f.protein} C:{f.carbs} F:{f.fat}</p></div>
-                    <span className="text-[10px] bg-orange-500/10 text-orange-500 px-3 py-1 rounded-lg">{f.cal} cal</span>
+                    <div><p className="text-xs font-black">{f.name}</p><p className="text-[9px] text-slate-500 italic">P:{f.protein} C:{f.carbs} F:{f.fat}</p></div>
+                    <span className="text-[10px] bg-orange-500/10 text-orange-500 px-3 py-1 rounded-lg font-black">{f.cal} cal</span>
                   </div>
                 ))}
               </div>
@@ -233,7 +242,7 @@ export default function App() {
             <div className="space-y-3">
               {meals.map(m => (
                 <div key={m.id} className="bg-slate-900/40 p-4 rounded-2xl flex justify-between items-center border border-white/5">
-                  <div className="flex gap-3"><div className="p-2 bg-orange-500/10 text-orange-500 rounded-lg"><Apple size={16}/></div><div><p className="text-xs font-black">{m.name}</p><p className="text-[10px] text-slate-500">{m.cal} kcal</p></div></div>
+                  <div className="flex gap-3"><div className="p-2 bg-orange-500/10 text-orange-500 rounded-lg"><Apple size={16}/></div><div><p className="text-xs font-black">{m.name}</p><p className="text-[10px] text-slate-500 italic">{m.cal} kcal</p></div></div>
                   <button onClick={() => setMeals(meals.filter(x => x.id !== m.id))} className="text-slate-800 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                 </div>
               ))}
@@ -243,21 +252,21 @@ export default function App() {
 
         {view === 'profile' && (
           <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6 h-fit">
+            <div className="bg-slate-900/40 border border-white/5 rounded-[2.5rem] p-7 h-fit">
               <h3 className="text-sm font-black mb-8 flex items-center gap-2 text-indigo-400"><User size={20}/> الإعدادات الشخصية</h3>
-              <div className="grid grid-cols-2 gap-5 mb-6">
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الوزن (kg)</label><input type="number" value={user.weight} onChange={e => setUser({...user, weight: parseFloat(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الطول (cm)</label><input type="number" value={user.height} onChange={e => setUser({...user, height: parseFloat(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">العمر</label><input type="number" value={user.age} onChange={e => setUser({...user, age: parseInt(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الجنس</label><select value={user.gender} onChange={e => setUser({...user, gender: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none appearance-none"><option value="male">ذكر</option><option value="female">أنثى</option></select></div>
+              <div className="grid grid-cols-2 gap-5 mb-8 text-right">
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الوزن (kg)</label><input type="number" value={user.weight} onChange={e => setUser({...user, weight: parseFloat(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-white outline-none focus:border-indigo-500 transition-all" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الطول (cm)</label><input type="number" value={user.height} onChange={e => setUser({...user, height: parseFloat(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-white outline-none focus:border-indigo-500 transition-all" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">العمر</label><input type="number" value={user.age} onChange={e => setUser({...user, age: parseInt(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-white outline-none focus:border-indigo-500 transition-all" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الجنس</label><select value={user.gender} onChange={e => setUser({...user, gender: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-white outline-none focus:border-indigo-500 appearance-none"><option value="male">ذكر</option><option value="female">أنثى</option></select></div>
               </div>
-              <button onClick={handleDatabaseSave} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase shadow-lg shadow-indigo-900/40 active:scale-95 transition-all">مزامنة البيانات مع السحابة ☁️</button>
+              <button onClick={handleManualSave} className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[1.5rem] font-black text-xs uppercase shadow-xl shadow-indigo-900/30 active:scale-[0.98] transition-all">حفظ الإعدادات</button>
+              <p className="mt-4 text-[8px] text-center text-slate-600 font-bold uppercase tracking-widest italic animate-pulse">Auto-Cloud Sync Active</p>
             </div>
-            <button onClick={() => { if(confirm('مسح كل البيانات؟')) { setCompleted({}); setMeals([]); setWater(0); setStreak(0); } }} className="w-full py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-xs uppercase active:bg-red-500 active:text-white transition-all">Reset Legacy Data</button>
           </div>
         )}
 
-        <div className="pt-4 pb-10 text-center px-4"><p className="text-[11px] font-bold text-slate-600 italic">"{quotes[Math.floor(Math.random() * quotes.length)]}"</p></div>
+        <div className="pt-4 pb-10 text-center px-4"><p className="text-[10px] font-bold text-slate-600 italic leading-relaxed">"{quotes[Math.floor(Math.random() * quotes.length)]}"</p></div>
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 p-5 bg-[#020617]/95 backdrop-blur-2xl border-t border-white/5">

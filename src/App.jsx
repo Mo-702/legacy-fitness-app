@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { neon } from '@neondatabase/serverless';
 import { 
   Dumbbell, Timer, Zap, Trophy, User, 
   Settings, ChevronRight, CheckCircle2, Circle, 
@@ -6,6 +7,9 @@ import {
   TrendingUp, Activity, Heart, Utensils, Footprints,
   Coffee, Pizza, Apple, Search, ChevronDown, Droplets
 } from 'lucide-react';
+
+// تجهيز الاتصال بقاعدة البيانات
+const sql = neon(import.meta.env.VITE_DATABASE_URL || "");
 
 // --- DATA ---
 const workoutData = {
@@ -27,7 +31,7 @@ const foodDatabase = [
 const quotes = ["البطات اللي تعورك اليوم، هي هيبتك بكرة! 🧣", "75 كجم موب بعيدة على وحش مثلك.. دز! 🎯", "كل موز واشرب كودرد، واصنع المجد! 🍌⚡"];
 
 export default function App() {
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('legacy_user_v7') || '{"weight": 75, "height": 175, "age": 25, "gender": "male"}'));
+  const [user, setUser] = useState({ weight: 75, height: 175, age: 25, gender: "male" });
   const [activeDay, setActiveDay] = useState(Object.keys(workoutData)[new Date().getDay()]);
   const [completed, setCompleted] = useState(() => JSON.parse(localStorage.getItem('legacy_done_v7') || '{}'));
   const [sessionData, setSessionData] = useState(() => JSON.parse(localStorage.getItem('legacy_sessions_v7') || '{}'));
@@ -37,16 +41,51 @@ export default function App() {
   const [meals, setMeals] = useState(() => JSON.parse(localStorage.getItem('legacy_meals_v7') || '[]'));
   const [view, setView] = useState('dashboard');
   const [timer, setTimer] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // جلب البيانات من قاعدة البيانات عند التشغيل
+  useEffect(() => {
+    async function initDB() {
+      try {
+        const data = await sql`SELECT * FROM user_profile ORDER BY id DESC LIMIT 1`;
+        if (data.length > 0) {
+          setUser({
+            weight: data[0].weight,
+            height: data[0].height,
+            age: data[0].age,
+            gender: data[0].gender
+          });
+        }
+      } catch (err) {
+        console.error("Database fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    initDB();
+  }, []);
+
+  // حفظ التعديلات في قاعدة البيانات
+  const handleDatabaseSave = async () => {
+    try {
+      await sql`
+        INSERT INTO user_profile (weight, height, age, gender) 
+        VALUES (${user.weight}, ${user.height}, ${user.age}, ${user.gender})
+      `;
+      alert("تمت المزامنة مع السحابة بنجاح! ✅");
+    } catch (err) {
+      alert("خطأ في المزامنة.. تأكد من اتصالك");
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem('legacy_user_v7', JSON.stringify(user));
     localStorage.setItem('legacy_done_v7', JSON.stringify(completed));
     localStorage.setItem('legacy_sessions_v7', JSON.stringify(sessionData));
     localStorage.setItem('legacy_cardio_v7', JSON.stringify(cardio));
     localStorage.setItem('legacy_meals_v7', JSON.stringify(meals));
     localStorage.setItem('legacy_water_v7', water.toString());
     localStorage.setItem('legacy_streak_v7', streak.toString());
-  }, [user, completed, sessionData, cardio, meals, water, streak]);
+  }, [completed, sessionData, cardio, meals, water, streak]);
 
   useEffect(() => {
     let interval;
@@ -79,6 +118,8 @@ export default function App() {
   }), { cal: 0, protein: 0, carbs: 0, fat: 0 }), [meals]);
 
   const netCalories = stats.cal - (bmr + burnedWorkout + burnedCardio);
+
+  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white font-black">LEGACY OS IS LOADING...</div>;
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 pb-36 font-sans rtl select-none" dir="rtl">
@@ -204,12 +245,13 @@ export default function App() {
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6 h-fit">
               <h3 className="text-sm font-black mb-8 flex items-center gap-2 text-indigo-400"><User size={20}/> الإعدادات الشخصية</h3>
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-2 gap-5 mb-6">
                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الوزن (kg)</label><input type="number" value={user.weight} onChange={e => setUser({...user, weight: parseFloat(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الطول (cm)</label><input type="number" value={user.height} onChange={e => setUser({...user, height: parseFloat(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">العمر</label><input type="number" value={user.age} onChange={e => setUser({...user, age: parseInt(e.target.value)})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الجنس</label><select value={user.gender} onChange={e => setUser({...user, gender: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none appearance-none"><option value="male">ذكر</option><option value="female">أنثى</option></select></div>
               </div>
+              <button onClick={handleDatabaseSave} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase shadow-lg shadow-indigo-900/40 active:scale-95 transition-all">مزامنة البيانات مع السحابة ☁️</button>
             </div>
             <button onClick={() => { if(confirm('مسح كل البيانات؟')) { setCompleted({}); setMeals([]); setWater(0); setStreak(0); } }} className="w-full py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-xs uppercase active:bg-red-500 active:text-white transition-all">Reset Legacy Data</button>
           </div>

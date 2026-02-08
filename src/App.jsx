@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Dumbbell, Timer, Zap, Trophy, Music, User, 
+  Dumbbell, Timer, Zap, Trophy, User, 
   Settings, ChevronRight, CheckCircle2, Circle, 
   Flame, Scale, Ruler, Plus, Minus, Trash2, 
   TrendingUp, Activity, Heart, Utensils, Footprints,
@@ -35,7 +35,6 @@ export default function App() {
   const [water, setWater] = useState(() => parseInt(localStorage.getItem('legacy_water_v7') || '0'));
   const [streak, setStreak] = useState(() => parseInt(localStorage.getItem('legacy_streak_v7') || '0'));
   const [meals, setMeals] = useState(() => JSON.parse(localStorage.getItem('legacy_meals_v7') || '[]'));
-  const [songs, setSongs] = useState(() => JSON.parse(localStorage.getItem('legacy_songs_v7') || '[]'));
   const [view, setView] = useState('dashboard');
   const [timer, setTimer] = useState(0);
 
@@ -45,10 +44,9 @@ export default function App() {
     localStorage.setItem('legacy_sessions_v7', JSON.stringify(sessionData));
     localStorage.setItem('legacy_cardio_v7', JSON.stringify(cardio));
     localStorage.setItem('legacy_meals_v7', JSON.stringify(meals));
-    localStorage.setItem('legacy_songs_v7', JSON.stringify(songs));
     localStorage.setItem('legacy_water_v7', water.toString());
     localStorage.setItem('legacy_streak_v7', streak.toString());
-  }, [user, completed, sessionData, cardio, meals, songs, water, streak]);
+  }, [user, completed, sessionData, cardio, meals, water, streak]);
 
   useEffect(() => {
     let interval;
@@ -105,7 +103,6 @@ export default function App() {
         
         {view === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-            {/* Main Stats Card */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-950 border border-white/10 rounded-[2.5rem] p-7 relative overflow-hidden shadow-2xl">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center mb-2">الميزانية الصافية</p>
               <h2 className={`text-6xl font-black text-center ${netCalories > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{Math.abs(netCalories)}</h2>
@@ -117,7 +114,6 @@ export default function App() {
               <Flame size={150} className="absolute -right-12 -bottom-12 text-white/5 rotate-12" />
             </div>
 
-            {/* Quick Water Tracker */}
             <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6 flex items-center justify-between shadow-lg">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl"><Droplets size={24}/></div>
@@ -129,7 +125,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Cardio Section */}
             <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6">
               <div className="flex justify-between items-center mb-4"><h3 className="text-xs font-black flex items-center gap-2"><Footprints size={16}/> نشاط الكارديو</h3><span className="text-[10px] font-bold text-orange-500">-{burnedCardio} kcal</span></div>
               <div className="flex gap-2 mb-4">
@@ -176,7 +171,6 @@ export default function App() {
 
         {view === 'food' && (
           <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Quick Macros */}
             <div className="grid grid-cols-3 gap-2">
               <button onClick={() => setMeals([...meals, {name: "بروتين سريع", cal: 80, protein: 20, carbs: 0, fat: 0, id: Date.now()}])} className="bg-blue-600/20 border border-blue-500/30 p-3 rounded-2xl text-[10px] font-black text-blue-400">+20g Protein</button>
               <button onClick={() => setMeals([...meals, {name: "كارب سريع", cal: 120, protein: 0, carbs: 30, fat: 0, id: Date.now()}])} className="bg-emerald-600/20 border border-emerald-500/30 p-3 rounded-2xl text-[10px] font-black text-emerald-400">+30g Carbs</button>
@@ -206,23 +200,6 @@ export default function App() {
           </div>
         )}
 
-        {view === 'music' && (
-          <div className="space-y-6 animate-in slide-in-from-right duration-500">
-            <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-7 h-fit">
-               <div className="flex items-center gap-3 mb-6 text-pink-500"><Music size={24} /><h3 className="text-xl font-black italic">مختبر تحليل الأداء الموسيقي</h3></div>
-               <input id="m_art" type="text" placeholder="الفنان..." className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm mb-3 outline-none focus:border-pink-500" />
-               <input id="m_tit" type="text" placeholder="اسم الأغنية..." className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm mb-6 outline-none focus:border-pink-500" />
-               <button onClick={() => { const a = document.getElementById('m_art').value; const t = document.getElementById('m_tit').value; if(a && t) { setSongs([{artist: a, title: t, id: Date.now()}, ...songs]); document.getElementById('m_art').value = ''; document.getElementById('m_tit').value = ''; } }} className="w-full py-4 bg-pink-600 rounded-[1.5rem] font-black text-sm shadow-xl shadow-pink-900/20 active:scale-95 transition-all">حفظ الأداء الموسيقي</button>
-            </div>
-            {songs.map(s => (
-              <div key={s.id} className="bg-slate-900/40 p-4 rounded-2xl flex justify-between items-center border border-white/5 group">
-                <div className="flex items-center gap-4"><div className="p-3 bg-pink-500/10 text-pink-500 rounded-xl"><Music size={18}/></div><div><p className="text-sm font-black text-white">{s.title}</p><p className="text-[10px] text-slate-500 font-bold uppercase">{s.artist}</p></div></div>
-                <button onClick={() => setSongs(songs.filter(x => x.id !== s.id))} className="text-slate-800 group-hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
-              </div>
-            ))}
-          </div>
-        )}
-
         {view === 'profile' && (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-6 h-fit">
@@ -234,7 +211,7 @@ export default function App() {
                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الجنس</label><select value={user.gender} onChange={e => setUser({...user, gender: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-sm font-black text-indigo-400 outline-none appearance-none"><option value="male">ذكر</option><option value="female">أنثى</option></select></div>
               </div>
             </div>
-            <button onClick={() => { if(confirm('مسح كل البيانات؟')) { setCompleted({}); setMeals([]); setSongs([]); setWater(0); setStreak(0); } }} className="w-full py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-xs uppercase active:bg-red-500 active:text-white transition-all">Reset Legacy Data</button>
+            <button onClick={() => { if(confirm('مسح كل البيانات؟')) { setCompleted({}); setMeals([]); setWater(0); setStreak(0); } }} className="w-full py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-xs uppercase active:bg-red-500 active:text-white transition-all">Reset Legacy Data</button>
           </div>
         )}
 
@@ -242,8 +219,8 @@ export default function App() {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 p-5 bg-[#020617]/95 backdrop-blur-2xl border-t border-white/5">
-        <div className="max-w-md mx-auto grid grid-cols-5 gap-2">
-          {[{id: 'dashboard', icon: TrendingUp, label: 'لوحة'}, {id: 'workout', icon: Dumbbell, label: 'تمرين'}, {id: 'food', icon: Utensils, label: 'تغذية'}, {id: 'music', icon: Music, label: 'أغاني'}, {id: 'profile', icon: User, label: 'أنا'}].map(tab => (
+        <div className="max-w-md mx-auto grid grid-cols-4 gap-2">
+          {[{id: 'dashboard', icon: TrendingUp, label: 'لوحة'}, {id: 'workout', icon: Dumbbell, label: 'تمرين'}, {id: 'food', icon: Utensils, label: 'تغذية'}, {id: 'profile', icon: User, label: 'أنا'}].map(tab => (
             <button key={tab.id} onClick={() => setView(tab.id)} className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all ${view === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-slate-900/50'}`}>
               <tab.icon size={18} /><span className="text-[8px] font-black uppercase tracking-tighter">{tab.label}</span>
             </button>
